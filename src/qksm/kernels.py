@@ -73,3 +73,54 @@ class ClinicalKernel:
 
 
 CLASSICAL = {"linear": LinearKernel, "rbf": RBFKernel, "clinical": ClinicalKernel}
+
+
+# ---------------------------------------------------------------- quantum
+
+# Angle scale c: 7 log-spaced values in [0.1, 1], same grid size as the RBF bandwidth.
+C_GRID = list(np.geomspace(0.1, 1.0, GRID_SIZE))
+
+
+class QuantumKernel:
+    """Fidelity kernel |<psi(x)|psi(x')>|^2 for one fixed circuit (A1-A4). Tunes only c."""
+
+    def __init__(self, ordinal, circuit):
+        from qksm.quantum import CIRCUITS
+        assert circuit in CIRCUITS
+        self.ordinal = ordinal
+        self.circuit = circuit
+        self.name = circuit
+        self.grid = C_GRID
+
+    def states(self, X_tr, X_te, c):
+        from qksm.quantum import AngleScaler, statevectors
+        scaler = AngleScaler(self.ordinal).fit(X_tr)
+        return (statevectors(self.circuit, c * scaler.transform(X_tr)),
+                statevectors(self.circuit, c * scaler.transform(X_te)))
+
+    def matrices(self, X_tr, X_te, c):
+        from qksm.quantum import fidelity_kernel
+        S_tr, S_te = self.states(X_tr, X_te, c)
+        return fidelity_kernel(S_tr, S_tr), fidelity_kernel(S_te, S_tr)
+
+
+class ProjectedQuantumKernel(QuantumKernel):
+    """Projected quantum kernel (A6, Huang et al. 2021).
+
+    Measure <X>,<Y>,<Z> on every qubit, then an RBF kernel on those 3d numbers.
+    gamma is fixed by the median heuristic (not tuned), so the only tuned knob is c
+    and the tuning budget equals the fidelity kernels' and the RBF's.
+    """
+
+    def __init__(self, ordinal, circuit="Q-2L"):
+        super().__init__(ordinal, circuit)
+        self.name = f"P-{circuit}"
+
+    def matrices(self, X_tr, X_te, c):
+        from qksm.quantum import pauli_expectations
+        S_tr, S_te = self.states(X_tr, X_te, c)
+        A, B = pauli_expectations(S_tr), pauli_expectations(S_te)
+        d2 = cdist(A, A, "sqeuclidean")
+        med = np.median(d2[np.triu_indices_from(d2, 1)])
+        gamma = 1.0 / med if med > 0 else 1.0
+        return np.exp(-gamma * d2), np.exp(-gamma * cdist(B, A, "sqeuclidean"))

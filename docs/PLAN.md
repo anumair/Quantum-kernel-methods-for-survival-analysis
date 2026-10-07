@@ -109,6 +109,7 @@ table row and gets its own entry in [results_log.md](results_log.md).
 | **A2** | `Q-2L` re-uploading + CNOT ring | does **entanglement** add useful feature interactions? | core |
 | **A3** | `Q-3L` deeper circuit | does **more depth / expressivity** help, or does it hurt (concentration)? | core |
 | **A4** | `Q-ZZ` feature map | do **data-dependent entanglers** (pairwise `x_j·x_k` terms, standard in literature) help? | core |
+| **A4b** | `Q-Z` = `Q-ZZ` **without** the ZZ gates (product state, classical) | ablation: is a `Q-ZZ` gain due to entanglement or to its H+RZ encoding? | core (added after Step 4) |
 | **A5** | **Bandwidth sweep** of `c` (recorded for all 7 values, not just the tuned one) | how kernel quality changes from "everyone similar" to "everyone different" | core |
 | **A6** | **Projected quantum kernel** (Huang et al. 2021): measure ⟨X⟩,⟨Y⟩,⟨Z⟩ on each qubit, RBF on those | does a kernel that avoids exponential concentration do better than the fidelity kernel? | core |
 | **A7** | **Hybrid kernel** `w·K_Q + (1−w)·K_linear` | does the quantum kernel carry information **complementary** to the linear one? (`w` grid reported separately, since it adds tuning) | core |
