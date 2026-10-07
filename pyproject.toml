@@ -13,6 +13,7 @@ dependencies = [
     "lifelines",
     "qiskit",
     "matplotlib",
+    "tabulate>=0.10.0",
 ]
 
 [dependency-groups]
