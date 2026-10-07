@@ -1,5 +1,18 @@
 # Results Log
 
+Every approach we try is recorded here with the same template (teacher's guidance: try various
+approaches, and explain *why* classical wins if it does):
+
+```
+### <ID>: <approach name>
+- Idea: what we are testing
+- Why it might help:
+- Setup: datasets, circuit/kernel, grid, splits
+- Result: C-index vs best classical (table / link)
+- Observed: what happened (numbers)
+- Explanation: why, citing measurements R1–R7 (see docs/PLAN.md, Step 5b)
+```
+
 ## Step 1: Classical reproduction of Van Belle et al. (2011): ✅ pipeline trusted
 
 Run: `uv run python scripts/step1_reproduce.py --splits 20` (2026-10-07).

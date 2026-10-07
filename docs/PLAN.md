@@ -1,6 +1,19 @@
 # Final Project Plan: Quantum Kernel Methods for Survival Analysis
 
-**Status:** ✅ FINAL (2026-10-07) · **Team:** Ansari, Tarun · **Timeline:** 4 weeks (lean scope) · **Anchor paper:** Van Belle et al. 2011
+**Status:** ✅ FINAL, revised for teacher's guidance (2026-10-07) · **Team:** Ansari, Tarun · **Timeline:** 4 weeks (lean scope) · **Anchor paper:** Van Belle et al. 2011
+
+## Teacher's guidance (2026-10-07)
+
+> A better quantum kernel is **not** expected. Apply **various approaches**. An improvement is welcome,
+> but if classical performs better (the likely case), give **proper reasons and reasoning for why**.
+
+What this changes:
+1. **Breadth over tuning one model:** we try a catalogue of quantum-kernel approaches (Step 2, A1–A8),
+   each designed to test one idea about where a quantum advantage *could* come from.
+2. **Every approach is recorded** in [results_log.md](results_log.md) with the same template:
+   *idea → why it might help → setup → result → what we observed → explanation*.
+3. **New Step 5b, "Why classical wins":** each explanation must be backed by a **measurement**
+   (R1–R7), not opinion. The report's main contribution is this evidence-based reasoning.
 
 ## Core idea
 
@@ -12,7 +25,7 @@ Same models, same splits, same metric, so the comparison is fair and easy to def
 
 | Topic | Choice |
 |---|---|
-| Survival SVM | `scikit-survival` `FastKernelSurvivalSVM(kernel="precomputed")`, `rank_ratio` ∈ {1 = ranking, 0.5 = hybrid, 0 = regression} |
+| Survival SVM | `scikit-survival` Survival SVM on a precomputed kernel, `rank_ratio` ∈ {1 = ranking, 0.5 = hybrid, 0 = regression}. Trained as a linear SVM on the empirical kernel map `Φ` (`ΦΦᵀ = K`): exact and tested, 20–60× faster |
 | Quantum simulator | Qiskit (`Statevector`), 4–8 qubits |
 | Quantum circuits | **≥ 2 encoding layers** (encode → CNOTs → encode). 1-layer = labelled "no entanglement" control only |
 | Kernel Cox | Kernel PCA on the (quantum) kernel → penalized Cox on the components |
@@ -46,8 +59,11 @@ Same models, same splits, same metric, so the comparison is fair and easy to def
 - ⚠️ Set **`fit_intercept=True` when `rank_ratio < 1`**, because the regression part needs the bias term `b` (paper Eq. 14).
 - **Check:** median C-index near the paper's: **VLC ≈ 0.69, GBSG2 ≈ 0.67** (regression/hybrid).
   Ranking-only should come out lower (paper: ≈ 0.58–0.62). If our numbers match, the pipeline is trustworthy.
+- ✅ **Done.** Regression/hybrid within +0.01–0.03 of the paper (the Cox reference shifts by the same amount).
+  Ranking does *not* reproduce the paper's weakness, because scikit-survival uses all comparable pairs. Details in [results_log.md](results_log.md).
+  Note: on VLC/GBSG2, RBF never beats linear. There is little nonlinear signal to find, which feeds R5.
 
-## Step 2: Build the quantum kernel
+## Step 2: Build the quantum kernels (approaches A1–A9)
 
 - ⚠️ **Why 1 layer is not quantum.** Gates that don't depend on the data and come *after* the last
   encoding cancel out of the overlap. For `U(x) = C·R(x)`:
@@ -81,6 +97,23 @@ Same models, same splits, same metric, so the comparison is fair and easy to def
     equal-tuning-budget rule holds without exceptions.
 - **Bandwidth `c`** scales the input angles. It is the single most important knob. Grid of 7 values
   (e.g. 0.1–1.0, log-spaced), the same size as the RBF bandwidth grid.
+
+### Approaches catalogue
+
+Each approach tests **one idea** about where a quantum advantage could come from. Each is its own
+table row and gets its own entry in [results_log.md](results_log.md).
+
+| ID | Approach | Idea being tested | Priority |
+|---|---|---|---|
+| **A1** | `Q-1L` product kernel (control) | baseline: angle encoding *without* entanglement (= classical cos² kernel) | core |
+| **A2** | `Q-2L` re-uploading + CNOT ring | does **entanglement** add useful feature interactions? | core |
+| **A3** | `Q-3L` deeper circuit | does **more depth / expressivity** help, or does it hurt (concentration)? | core |
+| **A4** | `Q-ZZ` feature map | do **data-dependent entanglers** (pairwise `x_j·x_k` terms, standard in literature) help? | core |
+| **A5** | **Bandwidth sweep** of `c` (recorded for all 7 values, not just the tuned one) | how kernel quality changes from "everyone similar" to "everyone different" | core |
+| **A6** | **Projected quantum kernel** (Huang et al. 2021): measure ⟨X⟩,⟨Y⟩,⟨Z⟩ on each qubit, RBF on those | does a kernel that avoids exponential concentration do better than the fidelity kernel? | core |
+| **A7** | **Hybrid kernel** `w·K_Q + (1−w)·K_linear` | does the quantum kernel carry information **complementary** to the linear one? (`w` grid reported separately, since it adds tuning) | core |
+| **A8** | **Trained kernel**: one trainable rotation layer between encodings, optimized to maximize KTA on training data | can we *learn* a better quantum feature map instead of fixing it? | optional |
+| **A9** | **Finite shots** (Qiskit sampler, 1024 shots) for the best circuit | what real-hardware sampling noise would cost | optional |
 
 ## Step 3: Diagnostics before training (Objective 2)
 
@@ -125,11 +158,31 @@ Same models, same splits, same metric, so the comparison is fair and easy to def
 - **Report:** median ± IQR C-index over 20 splits, plus paired Wilcoxon signed-rank test of QKSM vs each baseline
   **and vs the `Q-1L` no-entanglement control**.
 
+## Step 5b: Why classical wins (evidence toolkit)
+
+The teacher wants **reasons**. Every claim in the report must point to one of these measurements.
+
+| ID | Measurement | What it shows | Expected if classical wins |
+|---|---|---|---|
+| **R1** | **Kernel concentration:** off-diagonal mean/variance of `K` vs `c`, depth, number of qubits | quantum kernels drift toward `K ≈ I` (all patients "different"), so there's nothing to learn from | variance shrinks fast with depth/qubits |
+| **R2** | **Spectrum & effective dimension** of `K`; **train vs test C-index gap** | a flat eigenvalue spectrum = too many directions = fitting noise on small n (91–457 patients) | quantum: flatter spectrum, bigger train–test gap (overfitting) |
+| **R3** | **Geometric difference** `g(K_classical ‖ K_Q)` (Huang et al. 2021, "Power of data in QML") | if `g` is small, a classical kernel can provably do at least as well on *this* data | small `g` vs RBF |
+| **R4** | **Kernel–kernel alignment** `A(K_Q, K_RBF)`, `A(K_Q, K_linear)` | if the quantum kernel is nearly the same matrix as a classical one, it cannot behave differently | high alignment for shallow circuits |
+| **R5** | **Nonlinearity in the data:** gain of RBF / RSF over linear Cox | if no classical nonlinear model beats linear, risk is ~monotone in the covariates; quantum encodings are *periodic* (cos²), a mismatched **inductive bias** | gain ≈ 0 on VLC/GBSG2 (already seen in Step 1) |
+| **R6** | **Learning curves:** C-index vs training size (20 → 100% of train) | whether quantum kernels need more data than classical | quantum curve below / flatter |
+| **R7** | **Synthetic dial:** vary the true risk from linear → interaction → periodic | maps *when* each kernel wins; locates conditions under which quantum could help | quantum competitive only for periodic structure |
+
+Each approach's results_log entry ends with an **"Explanation"** line that cites R-numbers, e.g.
+*"A3 lost to A2 because off-diagonal variance fell 10× (R1) and the train–test gap doubled (R2)."*
+
 ## Step 6: Report
 
 - Tables in the paper's format (Tables 2–5 style): datasets × models → C-index.
+- **Approaches table:** A1–A9 × (what we tried, result vs best classical, explanation with R-numbers).
 - One page: **did KTA predict which kernel did better?** (scatter + Spearman).
-- Honest conclusion. If quantum ≤ classical, that is the "impactful negative result", explained by the health-check and KTA results.
+- **Chapter "Why classical performs better"**: the R1–R7 evidence, figure by figure, ending in a short list of
+  conditions under which a quantum kernel *could* help (from R7).
+- Honest conclusion. Improvement → reported with its evidence. No improvement → the "impactful negative result", with the reasons.
 
 ---
 
@@ -139,22 +192,23 @@ Same models, same splits, same metric, so the comparison is fair and easy to def
 src/qksm/
   data.py         # VLC, GBSG2, TCGA-BRCA, synthetic loaders + fold-safe preprocessing
   kernels.py      # linear, RBF, clinical, quantum (Qiskit statevectors)
-  diagnostics.py  # health check, survival KTA, permutation test
+  diagnostics.py  # health check, survival KTA, permutation test, R1-R4 (concentration, spectrum, g, alignment)
   models.py       # Survival SVM wrapper (sign fix), KPCA-Cox, baselines
   evaluate.py     # repeated splits, inner CV, C-index, Wilcoxon
-notebooks/        # 01_reproduce, 02_quantum_kernel, 03_kta, 04_benchmark
+scripts/          # one runnable script per step/approach (step1_reproduce.py, ...)
+notebooks/        # explanation + figures
 results/          # CSV tables + figures
-docs/             # research notes, this plan, report
+docs/             # research notes, this plan, results_log (every approach recorded), report
 ```
 
 ## Schedule (4 weeks)
 
 | Week | Ansari | Tarun | Milestone |
 |---|---|---|---|
-| **1** | setup, data loaders, evaluation loop | clinical kernel, Survival SVM wrapper | **Step 1 numbers ≈ paper** |
-| **2** | quantum kernel (Qiskit), health check | KTA + permutation test | quantum K for VLC/GBSG2 + KTA values |
-| **3** | QKSM-SVM + KPCA-Cox runs | TCGA-BRCA download + fold-safe pipeline, synthetic data, baselines | all models on all datasets (quick run) |
-| **4** | final 20-split runs, Wilcoxon, tables | KTA-vs-C-index analysis, figures | **report draft** |
+| **1** | ✅ setup, data loaders, evaluation loop, Step 1 | clinical kernel, Survival SVM wrapper | ✅ **Step 1 numbers ≈ paper** |
+| **2** | quantum kernels A1–A6 (Qiskit) + unit tests, health check | KTA + permutation test, R1/R4 diagnostics | A1–A6 results on VLC/GBSG2, logged |
+| **3** | A7 hybrid, KPCA-Cox, R2/R3/R6 | TCGA-BRCA pipeline, synthetic dial (R7), baselines (Cox-LASSO, RSF) | all approaches on all datasets, logged |
+| **4** | final 20-split runs, Wilcoxon, tables; A8/A9 if time | "Why classical wins" chapter (R1–R7 figures), KTA-vs-C-index | **report draft** |
 
 Swap the names freely. The split is by module so you don't edit the same files.
 
@@ -169,3 +223,5 @@ Swap the names freely. The split is by module so you don't edit the same files.
 | Running time | statevectors once per split; 8 qubits = 256 amplitudes, which is trivial |
 | Quantum kernel gets an unfair tuning advantage | equal-size grids for `c` and RBF bandwidth; same `alpha` grid; circuit fixed per row |
 | Angle wrap-around makes distant patients look alike | rescale to [0, π] before `c`, clip test values |
+| Explanations sound like opinion | every "why" must cite a measurement R1–R7; no R-number, no claim |
+| Too many approaches for 4 weeks | A1–A7 core; A8/A9 only if week 4 has room |
