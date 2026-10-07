@@ -1,10 +1,15 @@
 """Step 5: benchmark (Objective 3) and the synthetic dial (R7).
 
-- Baselines Cox-LASSO and Random Survival Forest on VLC, GBSG2 and the 3 synthetic sets.
-- All kernels (classical + quantum A1-A4, A6) on the 3 synthetic sets, hybrid form
+- Baselines Cox-LASSO and Random Survival Forest.
+- On synthetic sets: all kernels (classical + quantum A1-A4b, A6), hybrid form
   (the paper's Model 2), same splits and inner CV as Steps 1 and 4.
+- --wrap adds approach A5b (quantum kernels with c in [1, 8], angles wrap around).
 
-    uv run python scripts/step5_benchmark.py [--splits 20]
+Rows for the (dataset, kernel) pairs being run replace earlier rows in
+results/step5_splits.csv; everything else is kept.
+
+    uv run python scripts/step5_benchmark.py                                  # everything
+    uv run python scripts/step5_benchmark.py --datasets synth-periodic --wrap
 """
 
 import argparse
@@ -22,12 +27,23 @@ from qksm import synthetic as S
 from qksm.quantum import CIRCUITS
 
 RESULTS = Path(__file__).resolve().parents[1] / "results"
+ALL = ["vlc", "gbsg2"] + [f"synth-{k}" for k in S.RISKS]
+WRAP_CIRCUITS = ["Q-1L", "Q-2L", "Q-ZZ"]
 
 
-def all_kernels(ordinal):
-    return ([cls(ordinal) for cls in Kn.CLASSICAL.values()]
-            + [Kn.QuantumKernel(ordinal, c) for c in CIRCUITS]
-            + [Kn.ProjectedQuantumKernel(ordinal, "Q-2L")])
+def load(name):
+    return S.make(name.removeprefix("synth-")) if name.startswith("synth-") else D.load(name)
+
+
+def kernels_for(name, ordinal, wrap):
+    ks = []
+    if name.startswith("synth-"):
+        ks += ([cls(ordinal) for cls in Kn.CLASSICAL.values()]
+               + [Kn.QuantumKernel(ordinal, c) for c in CIRCUITS]
+               + [Kn.ProjectedQuantumKernel(ordinal, "Q-2L")])
+    if wrap:
+        ks += [Kn.QuantumKernel(ordinal, c, wrap=True) for c in WRAP_CIRCUITS]
+    return ks
 
 
 def run_baselines(data, n_splits):
@@ -39,29 +55,41 @@ def run_baselines(data, n_splits):
                          for (n, i, tr, te), r in zip(jobs, res)])
 
 
-def main(n_splits):
+def main(datasets, n_splits, wrap, baselines):
     frames = []
-    synth = [S.make(k) for k in S.RISKS]
-    for data in [D.load("vlc"), D.load("gbsg2")] + synth:
+    for name in datasets:
+        data = load(name)
         t0 = time.time()
-        frames.append(run_baselines(data, n_splits))
-        print(f"{data.name}: baselines done in {time.time() - t0:.0f}s", flush=True)
-    for data in synth:
-        t0 = time.time()
-        frames.append(E.run(data, all_kernels(data.ordinal), {"hybrid": 0.5}, n_splits=n_splits))
-        print(f"{data.name}: kernels done in {time.time() - t0:.0f}s", flush=True)
+        if baselines:
+            frames.append(run_baselines(data, n_splits))
+        ks = kernels_for(name, data.ordinal, wrap)
+        if ks:
+            frames.append(E.run(data, ks, {"hybrid": 0.5}, n_splits=n_splits))
+        print(f"{name}: done in {time.time() - t0:.0f}s", flush=True)
 
-    df = pd.concat(frames, ignore_index=True)
-    df.to_csv(RESULTS / "step5_splits.csv", index=False)
-    table = E.summarize(df)["median"].unstack(["dataset"]).round(3)
+    new = pd.concat(frames, ignore_index=True)
+    out = RESULTS / "step5_splits.csv"
+    if out.exists():
+        old = pd.read_csv(out)
+        key = set(zip(new.dataset, new.kernel))
+        old = old[[(d, k) not in key for d, k in zip(old.dataset, old.kernel)]]
+        new = pd.concat([old, new], ignore_index=True)
+    new.to_csv(out, index=False)
+
+    table = E.summarize(new)["median"].unstack(["dataset"]).round(3)
+    table = table[[c for c in ALL if c in table.columns]]
     table.to_csv(RESULTS / "step5_summary.csv")
     with open(RESULTS / "step5_summary.md", "w") as f:
-        f.write(f"Median test C-index over {n_splits} splits (kernels: hybrid form).\n\n")
+        f.write(f"Median test C-index over {n_splits} splits (kernels: hybrid form; baselines: Cox-LASSO, RSF).\n\n")
         f.write(table.to_markdown())
     print(table.to_string())
 
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
+    p.add_argument("--datasets", nargs="*", default=ALL)
     p.add_argument("--splits", type=int, default=20)
-    main(p.parse_args().splits)
+    p.add_argument("--wrap", action="store_true", help="add A5b wrap-around quantum kernels")
+    p.add_argument("--no-baselines", action="store_true")
+    a = p.parse_args()
+    main(a.datasets, a.splits, a.wrap, not a.no_baselines)

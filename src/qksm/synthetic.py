@@ -1,8 +1,11 @@
 """Synthetic survival data with a known risk function: the R7 "dial".
 
-    linear       eta = w . x                               (what linear Cox / linear SVM can fit)
-    interaction  eta = x1*x2 + x3*x4                       (pairwise interactions; RBF should fit it)
-    periodic     eta = sin(2 x1) cos(2 x2) + sin(x3 + x4)  (oscillating; suits cos/sin-based quantum kernels)
+    linear          eta = w . x                               (what linear Cox / linear SVM can fit)
+    interaction     eta = x1*x2 + x3*x4                       (pairwise interactions; RBF should fit it)
+    smooth-periodic eta = sin(2 x1) cos(2 x2) + sin(x3 + x4)  (first attempt: over x in [-pi/2, pi/2]
+                    this is mostly monotone, so linear models still fit it; kept for the record)
+    periodic        eta = sin(4 x1) cos(4 x2) + sin(4 x3)     (2 full oscillations over the range:
+                    not monotone, the one structure that suits periodic quantum encodings)
 
 Times follow a Cox model with exponential baseline, T = -log(U) / (lambda0 * exp(eta)),
 with independent uniform censoring tuned to about 40% censored.
@@ -13,7 +16,7 @@ import pandas as pd
 
 from qksm.data import SurvivalData
 
-RISKS = ("linear", "interaction", "periodic")
+RISKS = ("linear", "interaction", "smooth-periodic", "periodic")
 N_FEATURES = 8
 
 
@@ -24,8 +27,10 @@ def _eta(kind, X):
         eta = X @ w
     elif kind == "interaction":
         eta = x[0] * x[1] + x[2] * x[3]
-    elif kind == "periodic":
+    elif kind == "smooth-periodic":
         eta = np.sin(2 * x[0]) * np.cos(2 * x[1]) + np.sin(x[2] + x[3])
+    elif kind == "periodic":
+        eta = np.sin(4 * x[0]) * np.cos(4 * x[1]) + np.sin(4 * x[2])
     else:
         raise ValueError(f"unknown risk {kind!r}")
     return 1.5 * (eta - eta.mean()) / eta.std()   # same signal strength for every kind
