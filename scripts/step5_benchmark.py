@@ -50,7 +50,7 @@ def kernels_for(name, ordinal, wrap):
 
 def run_baselines(data, n_splits):
     splits = E.outer_splits(data, n_splits)
-    jobs = [(name, i, tr, te) for name in B.BASELINES for i, (tr, te) in enumerate(splits)]
+    jobs = [(name, i, tr, te) for name in ("cox-lasso", "rsf") for i, (tr, te) in enumerate(splits)]
     with parallel_config(backend="loky", inner_max_num_threads=1):
         res = Parallel(n_jobs=-1)(delayed(B.tune_and_test)(data, n, tr, te, seed=i) for n, i, tr, te in jobs)
     return pd.DataFrame([{"dataset": data.name, "kernel": n, "form": "baseline", "split": i, **r}

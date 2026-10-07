@@ -28,6 +28,9 @@ BASELINES = {
     # name -> (model factory, grid); 7 values each, same budget as the kernels' alpha grid
     "cox-lasso": (_cox_lasso, list(np.geomspace(1e-3, 0.5, 7))),
     "rsf": (_rsf, [3, 5, 10, 15, 20, 30, 50]),
+    # high-dimensional reality check (TCGA, ~4000 genes): very small alphas keep thousands of
+    # genes, take minutes per fit and overfit; alpha = 0.01 already keeps ~160 genes.
+    "cox-lasso-hd": (_cox_lasso, list(np.geomspace(1e-2, 0.5, 7))),
 }
 
 
@@ -41,9 +44,12 @@ def tune_and_test(data, name, tr, te, n_folds=5, seed=0):
     def score(p):
         s = []
         for a, b in folds:
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                m = factory(p).fit(A[a], y[a])
+            try:
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    m = factory(p).fit(A[a], y[a])
+            except ArithmeticError:   # coxnet diverges at too-small alpha: treat as a failed setting
+                return -np.inf
             s.append(cindex(t[b], e[b], m.predict(A[b])))
         return np.mean(s)
 

@@ -243,17 +243,62 @@ Run: `scripts/step6_extra.py a7 kpca lc` (20 splits; learning curves 10 splits).
 
 ---
 
+## Step 7: TCGA-BRCA multi-omics (the problem statement's oncology setting)
+
+Data: UCSC Xena TCGA hub. mRNA (HiSeqV2), copy number (GISTIC2), clinical, curated overall survival.
+**1063 primary tumours, 148 deaths (86% censored).** Label-free pre-filter to the top 2000 variance genes per omic. Then, **inside each
+training split**: top 1000 genes → z-score → PCA → 3 mRNA PCs + 3 CNV PCs + age + stage = **8 features = 8 qubits**, the same 8 for every
+kernel model. Methylation (450K, 783 MB) not included.
+Run: `scripts/step7_tcga.py` (20 splits, hybrid form). Tables: [results/step7_tcga_summary.md](../results/step7_tcga_summary.md),
+tests: `results/step7_wilcoxon.txt`.
+
+| Model | Median C-index | vs linear (paired) |
+|---|---|---|
+| `Q-1L` (no entanglement) | **0.766** | +0.006, 15/20 splits, p = 0.048 |
+| `Q-Z` (no entanglement) | **0.766** | +0.008, p = 0.07 |
+| linear | 0.765 | – |
+| `Q-2L` | 0.762 | +0.001, p = 0.55 |
+| `P-Q-2L` | 0.762 | p = 0.31 |
+| `Q-ZZ` | 0.761 | p = 0.25 |
+| RBF | 0.761 | p = 0.90 |
+| clinical kernel | 0.754 | |
+| Cox-LASSO (same 8 features) | 0.750 | |
+| Cox-LASSO, **clinical only** (age, stage) | 0.746 | |
+| Cox-LASSO, **all 4000 genes** + clinical | 0.724 | 8-feature Cox-LASSO better by +0.013, p = 0.001 |
+| RSF | 0.715 | linear better by +0.030, p = 4e-6 |
+
+**Observed:**
+- All kernel SVMs are within 0.012 of each other. Unentangled product kernels (`Q-1L`, `Q-Z`) edge linear by +0.006–0.008. Only `Q-1L`
+  reaches p < 0.05 (p = 0.048), which does **not** survive correction for the ~10 comparisons we made, so it is not a reliable improvement.
+- **Entanglement again makes things worse:** `Q-2L` < `Q-1L` (15/20 splits, p = 0.03), `Q-ZZ` < `Q-Z` (14/20, p = 0.012).
+- **Omics add almost nothing over clinical variables:** 8-feature Cox-LASSO vs clinical-only, p = 0.35; best kernel vs clinical-only Cox +0.02.
+  Overall survival in BRCA is driven mostly by age and stage, and with only 148 deaths there is little signal left to find.
+- **More features hurt:** Cox-LASSO on all genes (0.724) is worse than on 8 PCs (0.750). With 148 events, high-dimensional models overfit.
+- Diagnostics (3 splits, 51 configs): KTA still predicts test C-index (Spearman **0.58**, p = 7e-6; event-only 0.60), weaker than on
+  VLC/GBSG2 (0.82 / 0.73). Best quantum configs again sit close to RBF (alignment 0.92–0.93, g vs RBF 2.1–2.7 ≪ √n ≈ 27).
+  The best `c` is larger here (0.32–0.46), so the quantum kernels are less concentrated at their best on this dataset.
+
+**Explanation:**
+- **Why the product kernels slightly beat RBF/linear (hypothesis, labelled as such):** they use min-max scaling to [0, π] and a bounded
+  similarity, so patients with extreme PCA scores (omics PCs are heavy-tailed) influence the model less than under z-scoring. This is a
+  property of the *encoding*, not of quantum mechanics: the kernel is the classical `Π cos²` product.
+- **Why entanglement doesn't help:** same as before (R1/R2): it adds flexibility, and with 148 events extra flexibility is variance, not signal (R6).
+- **Why multi-omics doesn't change the picture:** the outcome is dominated by smooth, monotone clinical effects (R5). The omic PCs add
+  little, so there are no complex feature interactions for any nonlinear kernel, quantum or classical, to exploit.
+
+---
+
 ## Why classical performs better: summary of the evidence
 
 | # | Reason | Evidence |
 |---|---|---|
-| 1 | **The clinical data has almost no nonlinear signal.** Survival risk rises steadily with each covariate, so linear models are already near the ceiling. | RBF and RSF never beat linear Cox by > 0.02 on VLC/GBSG2 (R5). When nonlinear signal exists (synth-interaction), nonlinear kernels gain +0.27. |
+| 1 | **The clinical data has almost no nonlinear signal.** Survival risk rises steadily with each covariate, so linear models are already near the ceiling. | RBF and RSF never beat linear Cox by > 0.02 on VLC/GBSG2/TCGA-BRCA (RSF is worse on TCGA, −0.03) (R5). Multi-omics PCs add nothing significant over age + stage on TCGA (p = 0.35). When nonlinear signal exists (synth-interaction), nonlinear kernels gain +0.27. |
 | 2 | **In the regime where quantum kernels work best, they *are* classical RBF kernels.** | At the best `c`, 99.3–100% alignment with `exp(−‖θ−θ'‖²/4)` on the same angles, since `cos²(t/2) ≈ exp(−t²/4)` (R4). Geometric difference vs RBF only 2–4 ≪ √n (R3). |
 | 3 | **When the circuit becomes "really quantum" (larger angles, entanglement, depth), the kernel concentrates and overfits.** | Off-diagonal similarity 0.9 → 0.03, effective rank ×20, train–test gap ×2–3, test C falls (R1, R2, A3, A5). |
-| 4 | **Entanglement never helped.** Every apparent gain came from the single-qubit encoding. | `Q-2L`/`Q-3L` ≈ or < `Q-1L` everywhere; `Q-ZZ` = `Q-Z` (p = 0.90, A4b); on periodic and interaction data the entangled versions are significantly *worse*. |
+| 4 | **Entanglement never helped.** Every apparent gain came from the single-qubit encoding. | `Q-2L`/`Q-3L` ≈ or < `Q-1L` everywhere; `Q-ZZ` = `Q-Z` on GBSG2 (p = 0.90, A4b); on TCGA, periodic and interaction data the entangled versions are significantly *worse* (e.g. TCGA `Q-2L` < `Q-1L` p = 0.03, `Q-ZZ` < `Q-Z` p = 0.012). The small TCGA edge of `Q-1L` over linear (+0.006, p = 0.048, not robust to multiple testing) is also an unentangled, classical kernel. |
 | 5 | **Inductive-bias mismatch:** angle encodings make similarity periodic, which is wrong for monotone clinical risk. | Wrap-around kernels lose 0.03–0.11 on VLC/GBSG2 but win +0.03 on truly periodic data (A5b/R7). |
 | 6 | **Small cohorts favour simple kernels.** | Learning curves: linear leads by ~0.02 at 91 patients; quantum only catches up at full size (R6). |
-| 7 | **The pre-training diagnostic saw it coming.** | Survival KTA ranks kernels like test C-index (ρ = 0.82 / 0.73), and quantum kernels had lower KTA than linear/RBF before training (Objective 2). Limitation: as a tuner of `c` on non-monotone data it fails (A7). |
+| 7 | **The pre-training diagnostic saw it coming.** | Survival KTA ranks kernels like test C-index (ρ = 0.82 VLC / 0.73 GBSG2 / 0.58 TCGA-BRCA), and quantum kernels had lower KTA than linear/RBF before training (Objective 2). Limitation: as a tuner of `c` on non-monotone data it fails (A7). |
 
 **Conditions under which a quantum-circuit kernel *could* help** (from R7): the true risk must be **periodic / oscillating** in the
 features, and even then the winning kernel was the *unentangled* product kernel, which is classically computable. Any real quantum advantage

@@ -1,0 +1,14 @@
+{'P-Q-2L': 20, 'Q-1L': 20, 'Q-2L': 20, 'Q-Z': 20, 'Q-ZZ': 20, 'clinical': 20, 'cox-lasso': 20, 'cox-lasso-all-genes': 20, 'cox-lasso-clinical-only': 20, 'linear': 20, 'rbf': 20, 'rsf': 20} nan cindex 0
+Q-1L                     vs linear                 median diff +0.006 wins 15/20 p=0.0484
+Q-Z                      vs linear                 median diff +0.008 wins 15/20 p=0.0696
+Q-2L                     vs linear                 median diff +0.001 wins 11/20 p=0.546
+Q-ZZ                     vs linear                 median diff +0.006 wins 13/20 p=0.245
+P-Q-2L                   vs linear                 median diff +0.008 wins 12/20 p=0.312
+rbf                      vs linear                 median diff +0.001 wins 12/20 p=0.898
+Q-2L                     vs Q-1L                   median diff -0.002 wins 5/20 p=0.0296
+Q-ZZ                     vs Q-Z                    median diff -0.001 wins 6/20 p=0.0121
+Q-ZZ                     vs Q-1L                   median diff -0.001 wins 9/20 p=0.648
+cox-lasso                vs cox-lasso-clinical-only median diff -0.003 wins 9/20 p=0.349
+linear                   vs cox-lasso-clinical-only median diff +0.010 wins 11/20 p=0.294
+cox-lasso                vs cox-lasso-all-genes    median diff +0.013 wins 17/20 p=0.00143
+linear                   vs rsf                    median diff +0.030 wins 19/20 p=3.81e-06
