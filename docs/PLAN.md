@@ -207,8 +207,8 @@ docs/             # research notes, this plan, results_log (every approach recor
 | Week | Ansari | Tarun | Milestone |
 |---|---|---|---|
 | **1** | ✅ setup, data loaders, evaluation loop, Step 1 | clinical kernel, Survival SVM wrapper | ✅ **Step 1 numbers ≈ paper** |
-| **2** | quantum kernels A1–A6 (Qiskit) + unit tests, health check | KTA + permutation test, R1/R4 diagnostics | A1–A6 results on VLC/GBSG2, logged |
-| **3** | A7 hybrid, KPCA-Cox, R2/R3/R6 | TCGA-BRCA pipeline, synthetic dial (R7), baselines (Cox-LASSO, RSF) | all approaches on all datasets, logged |
+| **2** | ✅ quantum kernels A1–A6 (Qiskit) + unit tests, health check | ✅ KTA + permutation test, R1/R4 diagnostics | ✅ A1–A6 results on VLC/GBSG2, logged |
+| **3** | ✅ A4b, A5b, A7 hybrid, KPCA-Cox, R2/R3/R6 | ⏳ **TCGA-BRCA pipeline**; ✅ synthetic dial (R7), baselines (Cox-LASSO, RSF) | all approaches logged except TCGA-BRCA |
 | **4** | final 20-split runs, Wilcoxon, tables; A8/A9 if time | "Why classical wins" chapter (R1–R7 figures), KTA-vs-C-index | **report draft** |
 
 Swap the names freely. The split is by module so you don't edit the same files.

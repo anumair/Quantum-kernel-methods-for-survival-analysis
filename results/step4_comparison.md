@@ -6,6 +6,7 @@ Median test C-index over 20 splits (classical rows from Step 1).
 | ('gbsg2', 'Q-1L')     |     0.678 |    0.677 |        0.676 | nan     |
 | ('gbsg2', 'Q-2L')     |     0.675 |    0.679 |        0.678 | nan     |
 | ('gbsg2', 'Q-3L')     |     0.679 |    0.677 |        0.678 | nan     |
+| ('gbsg2', 'Q-Z')      |     0.685 |    0.688 |        0.686 | nan     |
 | ('gbsg2', 'Q-ZZ')     |     0.684 |    0.685 |        0.682 | nan     |
 | ('gbsg2', 'clinical') |     0.692 |    0.691 |        0.684 | nan     |
 | ('gbsg2', 'linear')   |     0.681 |    0.681 |        0.678 |   0.677 |
@@ -14,6 +15,7 @@ Median test C-index over 20 splits (classical rows from Step 1).
 | ('vlc', 'Q-1L')       |     0.716 |    0.719 |        0.715 | nan     |
 | ('vlc', 'Q-2L')       |     0.715 |    0.715 |        0.718 | nan     |
 | ('vlc', 'Q-3L')       |     0.713 |    0.712 |        0.716 | nan     |
+| ('vlc', 'Q-Z')        |     0.714 |    0.718 |        0.717 | nan     |
 | ('vlc', 'Q-ZZ')       |     0.709 |    0.718 |        0.716 | nan     |
 | ('vlc', 'clinical')   |     0.706 |    0.706 |        0.705 | nan     |
 | ('vlc', 'linear')     |     0.721 |    0.72  |        0.721 |   0.718 |

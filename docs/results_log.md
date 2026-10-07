@@ -95,7 +95,14 @@ Paired Wilcoxon signed-rank over the 20 splits, vs the best classical kernel of 
 - Idea: the standard QML feature map, with data-dependent entanglement.
 - Result: the best quantum kernel on GBSG2 (0.685), but still below clinical (0.691, p = 0.006). Ties linear on VLC.
 - Observed: at small `c` the pair term `c·x_j·x_k/π` is second order, so `Q-ZZ` ≈ a product kernel (alignment with matched RBF = 1.000).
-- Explanation: pending A4b.
+- Explanation: **not entanglement**. See A4b.
+
+### A4b: `Q-Z` = `Q-ZZ` without the ZZ gates (ablation, product state)
+- Idea: `Q-ZZ` differs from `Q-1L` in two ways (H+RZ encoding *and* ZZ entanglers). Removing the ZZ gates isolates the entanglement effect.
+- Result (hybrid): GBSG2 `Q-Z` 0.688 vs `Q-ZZ` 0.685, **no difference** (median diff 0.000, p = 0.90). `Q-Z` > `Q-1L` (+0.009, p = 1e-4).
+  `Q-Z` still < clinical (−0.009, p = 0.008). VLC `Q-Z` 0.718 ≈ linear (p = 0.39).
+- Explanation: the `Q-ZZ` gain over `Q-1L` comes entirely from its **single-qubit encoding**. H·RZ·H·RZ gives each feature a different
+  (richer) one-qubit feature function than RY, and it is still a product kernel, i.e. classical. **Entanglement contributed nothing measurable.**
 
 ### A5: bandwidth (`c`) sweep, all 7 values recorded (`results/step3_configs.csv`, 5 splits)
 - Every quantum kernel shows the same curve: as `c` grows 0.1 → 1, off-diagonal mean falls (VLC `Q-2L` 0.885 → 0.036),
@@ -162,4 +169,93 @@ Run: `scripts/step5_benchmark.py` (20 splits; kernels in hybrid form). Table: [r
 - **Positive control works:** when interactions exist, nonlinear kernels win big. Quantum kernels win too, but only *tie* RBF (0.765–0.770 vs 0.771),
   consistent with R4 (they are RBF-like).
 - **Design flaw found and fixed:** "smooth-periodic" `sin(2x₁)cos(2x₂) + sin(x₃+x₄)` is mostly monotone over the data range,
-  so linear models still fit it (0.744). Kept for the record. Replaced by a high-frequency `periodic` set (2 full oscillations). Running.
+  so linear models still fit it (0.744). Kept for the record. Replaced by a high-frequency `periodic` set
+  `sin(4x₁)cos(4x₂) + sin(4x₃)` (2 full oscillations).
+
+### R7 / A5b: high-frequency periodic data and wrap-around kernels (`c` ∈ [1, 8])
+
+| Model | VLC | GBSG2 | synth-interaction | synth-periodic |
+|---|---|---|---|---|
+| best classical | 0.720 (linear) | 0.691 (clinical) | 0.771 (RBF) | 0.686 (clinical) |
+| RSF / Cox-LASSO | 0.693 / 0.718 | 0.689 / 0.673 | 0.670 / 0.500 | 0.670 / 0.569 |
+| RBF / RBF-narrow (fairness check) | 0.711 / – | 0.682 / – | 0.771 / 0.743 | 0.547 / 0.534 |
+| `Q-1L` (normal `c`) | 0.719 | 0.677 | 0.770 | 0.555 |
+| **`Q-1L-wrap`** | 0.693 | 0.645 | 0.730 | **0.716** |
+| `Q-2L-wrap` | 0.610 | 0.636 | 0.644 | 0.659 |
+| `Q-ZZ-wrap` | 0.606 | 0.636 | 0.664 | 0.520 |
+
+- **The only win of the project:** on synth-periodic, `Q-1L-wrap` beats every classical model: clinical +0.033 (p = 0.001),
+  RSF +0.033 (19/20 splits, p = 1e-5), RBF-narrow +0.175 (20/20).
+- **Fairness check:** RBF with much narrower bandwidths (2–128 × median heuristic) does *not* catch up (0.534), so the win is not a tuning artifact.
+- **But it is not a quantum win:** `Q-1L-wrap` has **no entanglement**. It is the product-of-cosines kernel `Π cos²(c·Δx/2)`, a
+  classical *periodic* kernel that could be computed in one line of NumPy. Adding entanglement makes it **worse**
+  (`Q-2L-wrap` −0.062, p = 4e-6; `Q-ZZ-wrap` 0.520).
+- **On real data the same wrap-around kernels hurt badly** (VLC −0.03 to −0.11, GBSG2 −0.05). The periodic shape makes patients with
+  very different covariate values look similar, which contradicts risk that rises steadily with age, nodes, tumour size, etc.
+- Explanation (R5 + R7): what wins is **the match between the kernel's shape and the true risk function** (inductive bias).
+  Periodic kernel + periodic risk wins; periodic kernel + monotone clinical risk loses. Entanglement only ever made things worse here.
+
+---
+
+## Step 6: remaining approaches (A7, KPCA-Cox) and R6
+
+Run: `scripts/step6_extra.py a7 kpca lc` (20 splits; learning curves 10 splits). Table: `results/step6_a7_kpca_lc.md`.
+
+### A7: hybrid kernel `w·K_Q + (1−w)·K_linear` (c chosen by KTA before training)
+- Idea: even if the quantum kernel loses alone, it may carry information the linear kernel lacks.
+- Result (median C / median chosen w): VLC `H-Q-2L` 0.718 / **w = 0.17**; GBSG2 0.678 / 0.42; `H-Q-ZZ` the same.
+  Never better than the best single classical kernel.
+- Observed: on VLC, CV puts ~80% of the weight on the **linear** part. Mixing in the quantum kernel gives no complementary information.
+- **KTA as a selector fails on interaction data:** synth-interaction `H-Q-2L` 0.657, vs 0.769 for `Q-2L` tuned by CV.
+  Cause (`results/step6_a7_kta_choice.csv`): there, KTA *increases* with `c` (−0.003 → 0.029) while test C *decreases* (0.761 → 0.657),
+  so KTA picks the worst `c`. On VLC/GBSG2, KTA and test C move together (both peak at small `c`).
+- Explanation: KTA is computed on the training data, so it rewards flexible, concentrated kernels that "fit" the training ranks
+  (the same effect as the R2 overfitting gap). When the true risk is non-monotone in the features, absolute KTA values are near zero,
+  and this optimism dominates. **Lesson: KTA is good for screening kernel families, but CV is still needed for tuning.**
+
+### KPCA-Cox (Kernel Cox version of the QKSM, Objective 1)
+
+| Kernel | VLC | GBSG2 | synth-interaction |
+|---|---|---|---|
+| linear | **0.718** | 0.670 | 0.499 |
+| RBF | 0.706 | 0.678 | **0.731** |
+| clinical | 0.704 | **0.687** | 0.490 |
+| `Q-1L` | 0.709 | 0.670 | **0.731** |
+| `Q-2L` | 0.709 | 0.669 | 0.708 |
+| `Q-ZZ` | 0.711 | 0.675 | 0.707 |
+
+- Same pattern as the SVM: quantum ≤ best classical on real data; on interaction data the **product** `Q-1L` ties RBF, while the
+  entangled `Q-2L`/`Q-ZZ` are lower (−0.023). The conclusion does not depend on which survival model sits on top of the kernel.
+
+### R6: learning curves (hybrid SVM, 10 splits)
+
+| GBSG2, training patients → | 91 (20%) | 183 | 274 | 366 | 457 (100%) |
+|---|---|---|---|---|---|
+| linear | **0.648** | **0.664** | 0.674 | 0.679 | 0.678 |
+| RBF | 0.636 | 0.655 | 0.678 | 0.684 | 0.684 |
+| `Q-1L` | 0.624 | 0.647 | 0.670 | 0.674 | 0.681 |
+| `Q-2L` | 0.623 | 0.643 | 0.663 | 0.675 | 0.682 |
+| `Q-ZZ` | 0.631 | 0.650 | 0.674 | 0.683 | 0.693 |
+
+- With little data, linear wins clearly (+0.017 to +0.025 over quantum at 91 patients). Quantum kernels only catch up at the full training size.
+  Flexible kernels need more data to estimate. Clinical cohorts are small (VLC has only 91 training patients), so this works against quantum kernels.
+- On synth-interaction, quantum and RBF curves overlap at every size, and linear stays at 0.50. Again quantum = RBF.
+
+---
+
+## Why classical performs better: summary of the evidence
+
+| # | Reason | Evidence |
+|---|---|---|
+| 1 | **The clinical data has almost no nonlinear signal.** Survival risk rises steadily with each covariate, so linear models are already near the ceiling. | RBF and RSF never beat linear Cox by > 0.02 on VLC/GBSG2 (R5). When nonlinear signal exists (synth-interaction), nonlinear kernels gain +0.27. |
+| 2 | **In the regime where quantum kernels work best, they *are* classical RBF kernels.** | At the best `c`, 99.3–100% alignment with `exp(−‖θ−θ'‖²/4)` on the same angles, since `cos²(t/2) ≈ exp(−t²/4)` (R4). Geometric difference vs RBF only 2–4 ≪ √n (R3). |
+| 3 | **When the circuit becomes "really quantum" (larger angles, entanglement, depth), the kernel concentrates and overfits.** | Off-diagonal similarity 0.9 → 0.03, effective rank ×20, train–test gap ×2–3, test C falls (R1, R2, A3, A5). |
+| 4 | **Entanglement never helped.** Every apparent gain came from the single-qubit encoding. | `Q-2L`/`Q-3L` ≈ or < `Q-1L` everywhere; `Q-ZZ` = `Q-Z` (p = 0.90, A4b); on periodic and interaction data the entangled versions are significantly *worse*. |
+| 5 | **Inductive-bias mismatch:** angle encodings make similarity periodic, which is wrong for monotone clinical risk. | Wrap-around kernels lose 0.03–0.11 on VLC/GBSG2 but win +0.03 on truly periodic data (A5b/R7). |
+| 6 | **Small cohorts favour simple kernels.** | Learning curves: linear leads by ~0.02 at 91 patients; quantum only catches up at full size (R6). |
+| 7 | **The pre-training diagnostic saw it coming.** | Survival KTA ranks kernels like test C-index (ρ = 0.82 / 0.73), and quantum kernels had lower KTA than linear/RBF before training (Objective 2). Limitation: as a tuner of `c` on non-monotone data it fails (A7). |
+
+**Conditions under which a quantum-circuit kernel *could* help** (from R7): the true risk must be **periodic / oscillating** in the
+features, and even then the winning kernel was the *unentangled* product kernel, which is classically computable. Any real quantum advantage
+would need a structure that is both (a) present in the data and (b) not reproducible by a classical kernel (large geometric difference, R3).
+Nothing we measured on clinical data meets (a), and nothing we built meets (b).

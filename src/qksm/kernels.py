@@ -43,9 +43,12 @@ class RBFKernel:
 
     name = "rbf"
 
-    def __init__(self, ordinal):
+    def __init__(self, ordinal, narrow=False):
+        """narrow=True: multipliers 2^1 ... 2^7 (much narrower bandwidths), a fairness check
+        against A5b on high-frequency data. Labelled 'rbf-narrow', same grid size."""
         self.ordinal = ordinal
-        self.grid = list(2.0 ** np.linspace(-3, 3, GRID_SIZE))
+        self.grid = list(2.0 ** np.linspace(1, 7, GRID_SIZE) if narrow else 2.0 ** np.linspace(-3, 3, GRID_SIZE))
+        self.name = "rbf-narrow" if narrow else "rbf"
 
     def matrices(self, X_tr, X_te, multiplier):
         prep = Standardizer(self.ordinal).fit(X_tr)

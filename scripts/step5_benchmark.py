@@ -43,6 +43,8 @@ def kernels_for(name, ordinal, wrap):
                + [Kn.ProjectedQuantumKernel(ordinal, "Q-2L")])
     if wrap:
         ks += [Kn.QuantumKernel(ordinal, c, wrap=True) for c in WRAP_CIRCUITS]
+        if name.startswith("synth-"):
+            ks.append(Kn.RBFKernel(ordinal, narrow=True))   # fairness check for A5b
     return ks
 
 
@@ -55,7 +57,7 @@ def run_baselines(data, n_splits):
                          for (n, i, tr, te), r in zip(jobs, res)])
 
 
-def main(datasets, n_splits, wrap, baselines):
+def main(datasets, n_splits, wrap, baselines, only=None):
     frames = []
     for name in datasets:
         data = load(name)
@@ -63,6 +65,8 @@ def main(datasets, n_splits, wrap, baselines):
         if baselines:
             frames.append(run_baselines(data, n_splits))
         ks = kernels_for(name, data.ordinal, wrap)
+        if only:
+            ks = [k for k in ks if k.name in only]
         if ks:
             frames.append(E.run(data, ks, {"hybrid": 0.5}, n_splits=n_splits))
         print(f"{name}: done in {time.time() - t0:.0f}s", flush=True)
@@ -91,5 +95,6 @@ if __name__ == "__main__":
     p.add_argument("--splits", type=int, default=20)
     p.add_argument("--wrap", action="store_true", help="add A5b wrap-around quantum kernels")
     p.add_argument("--no-baselines", action="store_true")
+    p.add_argument("--only", nargs="*", help="run only these kernels, e.g. --only rbf-narrow")
     a = p.parse_args()
-    main(a.datasets, a.splits, a.wrap, not a.no_baselines)
+    main(a.datasets, a.splits, a.wrap, not a.no_baselines, a.only)

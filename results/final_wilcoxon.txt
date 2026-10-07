@@ -1,0 +1,11 @@
+gbsg2              Q-Z        vs Q-ZZ       median diff -0.000  wins 10/20  p=0.898
+gbsg2              Q-Z        vs Q-1L       median diff +0.009  wins 17/20  p=0.000105
+gbsg2              Q-Z        vs clinical   median diff -0.009  wins 4/20  p=0.00831
+vlc                Q-Z        vs linear     median diff -0.004  wins 8/20  p=0.388
+synth-periodic     Q-1L-wrap  vs clinical   median diff +0.033  wins 15/20  p=0.00121
+synth-periodic     Q-1L-wrap  vs rsf        median diff +0.033  wins 19/20  p=9.54e-06
+synth-periodic     Q-1L-wrap  vs Q-2L-wrap  median diff +0.062  wins 19/20  p=3.81e-06
+synth-periodic     Q-1L-wrap  vs rbf-narrow median diff +0.175  wins 20/20  p=1.91e-06
+synth-interaction  Q-1L       vs rbf        median diff +0.000  wins 13/20  p=0.294
+synth-interaction  Q-2L       vs Q-1L       median diff -0.002  wins 2/20  p=6.29e-05
+synth-interaction  rbf        vs rsf        median diff +0.104  wins 20/20  p=1.91e-06
