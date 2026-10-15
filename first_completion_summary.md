@@ -776,6 +776,10 @@ uv run streamlit run dashboard/app.py
 
 | Page | What it shows |
 |---|---|
+| Results | headline metrics, best classical vs best quantum on every dataset (with paired tests), and the C-index distribution of every model for a chosen dataset |
+| Why classical wins | entanglement effect per split (0 of 14 comparisons significantly positive, 7 significantly negative), kernel concentration vs angle scale, KTA vs test C-index, and the six reasons with their evidence |
+
+---|---|
 | Overview | headline metrics, best classical vs best quantum per dataset, architecture diagram, objectives scorecard |
 | Paper reproduction | our C-index vs Van Belle et al. (2011) |
 | Benchmark | C-index distributions per model for any dataset and SVM form, medians, live paired Wilcoxon tests |

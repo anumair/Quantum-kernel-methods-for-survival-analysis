@@ -25,9 +25,9 @@ uv run pytest
 uv run streamlit run dashboard/app.py
 ```
 
-Ten pages: overview, paper reproduction, benchmark (any dataset / SVM form, live paired tests), entanglement
-effect, KTA diagnostic, angle sweep, synthetic and wrap-around kernels, hybrid / KPCA-Cox / learning curves,
-TCGA-BRCA, and why classical wins. Everything is read from `results/`; nothing is recomputed.
+Two pages: **Results** (headline metrics, best classical vs best quantum, every model per dataset) and
+**Why classical wins** (entanglement effect, kernel concentration, KTA vs C-index, the reasons). Everything is read
+from `results/`; nothing is recomputed.
 
 Full project record: [first_completion_summary.md](first_completion_summary.md).
 
