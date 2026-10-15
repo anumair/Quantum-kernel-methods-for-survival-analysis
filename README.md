@@ -36,7 +36,7 @@ Full project record: [first_completion_summary.md](first_completion_summary.md).
 ```
 src/qksm/     library code (data, kernels, diagnostics, models, evaluate)
 tests/        unit tests
-notebooks/    one notebook per step
+scripts/      one runnable script per step + make_figures.py
 results/      tables and figures
 data/         raw / processed data (not committed)
 docs/         plan, notes, results log, architecture & novelty doc
