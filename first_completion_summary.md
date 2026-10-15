@@ -7,7 +7,7 @@
 | **Repository** | https://github.com/anumair/Quantum-kernel-methods-for-survival-analysis |
 | **Anchor paper** | V. Van Belle, K. Pelckmans, S. Van Huffel, J. A. K. Suykens, *"Support vector methods for survival analysis: a comparison between ranking and regression approaches"*, Artificial Intelligence in Medicine 53(2), 2011 |
 | **Work period covered** | Project start → first completion (2026-10-07) |
-| **Status** | All three objectives run end-to-end with results, figures and evidence-based reasoning. Remaining: the formal report, optional extensions (methylation, A8, A9). |
+| **Status** | **Final implementation.** All three objectives run end-to-end with results, figures, evidence-based reasoning and an interactive results dashboard. |
 
 This document records **everything done in the project from scratch**: the brief, the literature, every planning decision
 (including the mistakes we caught), the environment, the code, every experiment and its numbers, the engineering
@@ -26,11 +26,11 @@ problems and how they were fixed, and the final reasoning for why classical kern
 7. [Methods in full detail](#7-methods-in-full-detail)
 8. [Engineering problems found and fixed](#8-engineering-problems-found-and-fixed)
 9. [Results, step by step](#9-results-step-by-step)
-10. [Catalogue of approaches tried (A1–A9)](#10-catalogue-of-approaches-tried-a1a9)
+10. [Catalogue of approaches tried (A1–A7)](#10-catalogue-of-approaches-tried-a1a7)
 11. [Why classical performs better: the reasoning](#11-why-classical-performs-better-the-reasoning)
 12. [Objectives scorecard](#12-objectives-scorecard)
 13. [Limitations and honesty notes](#13-limitations-and-honesty-notes)
-14. [What remains](#14-what-remains)
+14. [Results dashboard](#14-results-dashboard)
 15. [How to reproduce everything](#15-how-to-reproduce-everything)
 16. [File index](#16-file-index)
 17. [Glossary](#17-glossary)
@@ -128,7 +128,7 @@ the quantum part was kept within these concepts:
 | 6 | Red flag #2 + 6 additions | Conflict: circuits must not be auto-selected if we report per circuit. Added equal tuning grids, `fit_intercept`, [0, π] scaling, censored-rank note, same TCGA features for all models, paired Wilcoxon, reworded the synthetic claim. Decided the `Q-ZZ` wrap-around fix (divide the pair term by π). Plan marked FINAL. | – |
 | 7 | Setup | Git (local identity `anumair <ansariumairnanded@gmail.com>`), Python 3.12 via `uv`, Qiskit 2.5.2, scikit-survival 0.28, lifelines 0.30, scikit-learn 1.9. Smoke-tested datasets (VLC 137/128 events, GBSG2 686/299 match the paper). | `da27a12` |
 | 8 | Step 1 | Classical reproduction. Fixed: slow kernel SVM (→ exact empirical kernel map, 20–60× faster), α grid too narrow, CPU oversubscription. Matched the paper within +0.01–0.03. | `afe8147` |
-| 9 | Teacher guidance | Plan revised: approaches catalogue A1–A9, evidence toolkit R1–R7, results-log template. | `28175bf` |
+| 9 | Teacher guidance | Plan revised: approaches catalogue A1–A7, evidence toolkit R1–R7, results-log template. | `28175bf` |
 | 10 | Step 2/4 | Qiskit circuits, unit tests for the trailing-CNOT bug, diagnostics module, baselines, synthetic data. First 20-split quantum benchmark on VLC/GBSG2. | `456e959` |
 | 11 | Step 3 | Diagnostics on 44 kernel configs × 5 splits: KTA predicts C-index; concentration, overfitting, geometric difference; small-c check proving best quantum kernels ≈ RBF. | `1389369` |
 | 12 | Ablations | A4b (`Q-Z`) proved the `Q-ZZ` gain is encoding, not entanglement. Fixed the flawed "periodic" synthetic set. A5b wrap-around kernels, RBF-narrow fairness check, A7 hybrid kernel, KPCA-Cox, learning curves. Found the KTA-as-tuner limitation. | `bd6474b` |
@@ -260,7 +260,7 @@ scaling and the same `c` grid, and the equal-budget rule holds without exception
 
 ### 5.6 Revision for the teacher's guidance
 
-- **Approaches catalogue A1–A9:** each tests one idea about where a quantum advantage could come from (§10).
+- **Approaches catalogue A1–A7:** each tests one idea about where a quantum advantage could come from (§10).
 - **Evidence toolkit R1–R7:** every "why" must cite a measurement:
   R1 concentration, R2 spectrum & train–test gap, R3 geometric difference, R4 kernel alignment, R5 nonlinearity in the data, R6 learning curves, R7 synthetic dial.
 - **Results-log template** for every approach: *idea → why it might help → setup → result → observed → explanation*.
@@ -295,7 +295,7 @@ Quantum/
 ├── README.md                     setup + layout
 ├── pyproject.toml, uv.lock, .python-version
 ├── docs/
-│   ├── PLAN.md                   final plan (approaches A1–A9, evidence R1–R7, schedule)
+│   ├── PLAN.md                   final plan (approaches A1–A7, evidence R1–R7, schedule)
 │   ├── research_notes.md         literature notes for refs [1]–[5]
 │   └── results_log.md            every approach recorded with the template
 ├── src/qksm/                     library (≈ 2000 lines incl. tests and scripts)
@@ -702,7 +702,7 @@ Colour code (same in every figure): classical = blue, quantum without entangleme
 
 ---
 
-## 10. Catalogue of approaches tried (A1–A9)
+## 10. Catalogue of approaches tried (A1–A7)
 
 | ID | Approach | Idea tested | Result vs best classical | Verdict & explanation |
 |---|---|---|---|---|
@@ -716,8 +716,6 @@ Colour code (same in every figure): classical = blue, quantum without entangleme
 | A6 | projected kernel | avoids concentration | worst on VLC/GBSG2 (−0.03) | lowest KTA; bounded periodic Pauli features distort monotone effects |
 | A7 | hybrid `w·K_Q + (1−w)·K_lin` | complementary information? | never better | CV puts most weight on linear; KTA-chosen c fails on interaction data |
 | – | KPCA-Cox | Kernel Cox version | same pattern as SVM | conclusion is model-independent |
-| A8 | trained (KTA-optimized) circuit | learn the feature map | **not done** (optional) | – |
-| A9 | finite shots (1024) | hardware sampling noise | **not done** (optional) | – |
 
 Full entries with the template: [docs/results_log.md](docs/results_log.md).
 
@@ -761,24 +759,33 @@ Every reason is tied to a measurement (R-number) and a result section.
 - **Statistics:** paired Wilcoxon over overlapping splits is optimistic, so p-values are indicative. No multiple-comparison correction is applied in the tables; we note where a result would not survive it (TCGA `Q-1L` p = 0.048).
 - **Inner CV reuses the outer-train kernel:** scaling, ranges and bandwidth heuristics (and TCGA PCA inside the outer split) see the whole training part during inner CV. The test part is never touched.
 - **TCGA:** label-free top-2000 variance pre-filter on the whole cohort (no labels used). **Methylation not included** (783 MB file), so 2 omic layers instead of 3. Only 148 deaths, so C-index is noisy (IQR ≈ 0.04–0.05).
-- **Simulation only:** exact noiseless statevectors; no hardware, no shot noise (A9 not done).
+- **Simulation only:** exact noiseless statevectors; no hardware, no shot noise.
 - **Synthetic data** is designed by us; the periodic set deliberately favours periodic kernels (like [5]'s positive control).
 - **Censored ranks** are only lower bounds; the event-only KTA cross-check agrees, so they don't distort the conclusions.
 - **Projected kernel** uses a fixed median-heuristic γ (so its tuning budget equals the others').
 
 ---
 
-## 14. What remains
+## 14. Results dashboard
 
-| Item | Status | Notes |
-|---|---|---|
-| Formal report (Abstract / Intro / Methods / Results / Why classical wins / Conclusion) | **to do** | all content, tables and figures are ready (this document + `docs/results_log.md` + `results/figures/`) |
-| README "how to run each step" | small | commands in §15 |
-| Methylation (450K) for TCGA | optional | 783 MB; or state as a limitation |
-| A8: trained quantum kernel (optimize one rotation layer for KTA) | optional | ~1–2 h |
-| A9: finite shots (Qiskit sampler, 1024 shots) | optional, recommended | ~1 h; shows the cost of hardware noise |
-| Explanatory notebooks | optional | for Tarun / teacher |
-| Add Tarun as GitHub collaborator | owner action | Settings → Collaborators |
+An interactive Streamlit dashboard shows every result of the final implementation, read from the saved files in `results/` (nothing is recomputed):
+
+```bash
+uv run streamlit run dashboard/app.py
+```
+
+| Page | What it shows |
+|---|---|
+| Overview | headline metrics, best classical vs best quantum per dataset, architecture diagram, objectives scorecard |
+| Paper reproduction | our C-index vs Van Belle et al. (2011) |
+| Benchmark | C-index distributions per model for any dataset and SVM form, medians, live paired Wilcoxon tests |
+| Entanglement effect | entangled minus unentangled C-index per split |
+| KTA diagnostic | pre-training KTA vs test C-index with Spearman ρ, permutation test, alignment with RBF |
+| Angle sweep | concentration, effective rank, KTA, overfitting gap, C-index and geometric difference vs the angle scale c |
+| Synthetic and wrap-around | the synthetic dial and the A5b wrap-around kernels |
+| Hybrid, KPCA-Cox, learning curves | A7, the Kernel Cox version and R6 |
+| TCGA-BRCA | the multi-omics benchmark and its reality checks |
+| Why classical wins | the seven evidence-backed reasons |
 
 ---
 
@@ -803,6 +810,7 @@ uv run pytest
 | 6 A7 + KPCA-Cox + learning curves | `uv run python scripts/step6_extra.py a7 kpca lc` | ~45 min | `results/step6_*` |
 | 7 TCGA-BRCA | download the 4 files listed in `scripts/step7_tcga.py` into `data/raw/`, then `uv run python scripts/step7_tcga.py --splits 20` | ~30 min | `results/step7_*` |
 | Figures | `uv run python scripts/make_figures.py` | seconds | `results/figures/` |
+| Dashboard | `uv run streamlit run dashboard/app.py` | seconds | opens in the browser |
 
 All randomness is seeded (splits `random_state=0`, CV folds seeded per split, RSF `random_state=0`, synthetic `seed=0`).
 
@@ -812,7 +820,7 @@ All randomness is seeded (splits `random_state=0`, CV folds seeded per split, RS
 
 | File | What it contains |
 |---|---|
-| `docs/PLAN.md` | final plan: decisions, steps, approaches A1–A9, evidence R1–R7, schedule, risks |
+| `docs/PLAN.md` | final plan: decisions, steps, approaches A1–A7, evidence R1–R7, schedule, risks |
 | `docs/research_notes.md` | literature notes for refs [1]–[5] |
 | `docs/results_log.md` | every approach with the template + the "why classical wins" summary |
 | `results/step1_summary.md` / `.csv`, `step1_splits.csv` | Step 1 tables and per-split rows |

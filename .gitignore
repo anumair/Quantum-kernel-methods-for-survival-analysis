@@ -21,3 +21,6 @@ data/processed/*
 
 # run logs
 results/*_log.txt
+
+# local tool config
+.claude/

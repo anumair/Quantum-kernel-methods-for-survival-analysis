@@ -197,7 +197,7 @@ Run: `scripts/step5_benchmark.py` (20 splits; kernels in hybrid form). Table: [r
 
 ---
 
-## Step 6: remaining approaches (A7, KPCA-Cox) and R6
+## Step 6: further approaches (A7, KPCA-Cox) and R6
 
 Run: `scripts/step6_extra.py a7 kpca lc` (20 splits; learning curves 10 splits). Table: `results/step6_a7_kpca_lc.md`.
 

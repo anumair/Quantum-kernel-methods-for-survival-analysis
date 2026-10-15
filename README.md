@@ -19,6 +19,18 @@ uv sync
 uv run pytest
 ```
 
+## Results dashboard
+
+```bash
+uv run streamlit run dashboard/app.py
+```
+
+Ten pages: overview, paper reproduction, benchmark (any dataset / SVM form, live paired tests), entanglement
+effect, KTA diagnostic, angle sweep, synthetic and wrap-around kernels, hybrid / KPCA-Cox / learning curves,
+TCGA-BRCA, and why classical wins. Everything is read from `results/`; nothing is recomputed.
+
+Full project record: [first_completion_summary.md](first_completion_summary.md).
+
 ## Layout
 
 ```
@@ -27,5 +39,6 @@ tests/        unit tests
 notebooks/    one notebook per step
 results/      tables and figures
 data/         raw / processed data (not committed)
-docs/         plan, notes, report
+docs/         plan, notes, results log, architecture & novelty doc
+dashboard/    Streamlit results dashboard
 ```
